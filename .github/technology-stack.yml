@@ -1,0 +1,83 @@
+# AppInventory — Approved Technology Stack
+# This file is the authoritative source for all technology decisions.
+# Any deviation MUST be justified in the relevant TPRD.
+
+project:
+  name: AppInventory (AppR)
+  description: Enterprise application inventory and management system
+  organization: Holman Enterprises
+
+backend:
+  language: Python 3.12
+  framework: FastAPI
+  orm: SQLAlchemy 2.0 (async)
+  migrations: Alembic
+  task_queue: Celery
+  message_broker: Redis (Celery broker + result backend)
+  api_styles:
+    - REST (primary)
+    - GraphQL (strawberry-graphql)
+  validation: Pydantic v2
+  testing:
+    unit: pytest
+    async: pytest-asyncio
+    coverage: pytest-cov
+    api: httpx (AsyncClient)
+
+frontend:
+  framework: Vue.js 3 (Composition API, <script setup>)
+  language: TypeScript
+  build_tool: Vite
+  state_management: Pinia
+  routing: Vue Router 4
+  css_framework: Tailwind CSS 3
+  http_client: Axios
+  visualization: D3.js 7
+  testing:
+    unit: Vitest
+    component: "@vue/test-utils"
+    e2e: Playwright
+
+authentication:
+  primary: OAuth 2.0 / SAML (Okta default)
+  fallback: Local authentication (username/password with bcrypt)
+  token_format: JWT (access + refresh tokens)
+  session: Stateless (JWT-based)
+
+authorization:
+  model: RBAC (Role-Based Access Control)
+  roles:
+    - Admin
+    - Editor
+    - Viewer
+    - Incident Commander
+
+database:
+  primary: PostgreSQL 16 (self-hosted)
+  cache: Redis 7
+  search: PostgreSQL full-text search (pg_trgm extension)
+
+infrastructure:
+  containerization: Docker
+  orchestration: Docker Compose (dev), Kubernetes (prod)
+  ci_cd: GitHub Actions
+  registry: GitHub Container Registry (ghcr.io)
+
+observability:
+  telemetry: OpenTelemetry
+  apm: New Relic (or compatible OTLP endpoint)
+  logging: Structured JSON logging (structlog)
+  metrics: Prometheus-compatible (OTLP export)
+  tracing: Distributed tracing via OpenTelemetry
+
+compliance:
+  framework: ISO 27001
+  data_classification: Proprietary (no PII/secrets)
+  network: Public-facing with authentication
+  encryption:
+    transit: TLS 1.3
+    at_rest: PostgreSQL native encryption
+
+multi_tenancy:
+  design: Schema-per-tenant ready (tenant_id column)
+  default_mode: Standalone (single tenant)

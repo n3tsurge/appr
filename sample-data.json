@@ -1,0 +1,105 @@
+{
+  "teams": [
+    { "id": "team1", "name": "Platform Engineering", "description": "Core platform infrastructure and developer tools", "slackChannel": "#platform-eng", "contactEmail": "platform@holman.com" },
+    { "id": "team2", "name": "Security", "description": "Application and infrastructure security", "slackChannel": "#security", "contactEmail": "security@holman.com" },
+    { "id": "team3", "name": "Product", "description": "Customer-facing product development", "slackChannel": "#product-eng", "contactEmail": "product@holman.com" }
+  ],
+  "owners": [
+    { "id": "own1", "name": "Alice Chen", "email": "alice@holman.com", "teamId": "team1", "role": "Senior Engineer", "slack": "@alice" },
+    { "id": "own2", "name": "Bob Martinez", "email": "bob@holman.com", "teamId": "team2", "role": "Security Architect", "slack": "@bob" },
+    { "id": "own3", "name": "Carol Smith", "email": "carol@holman.com", "teamId": "team3", "role": "Engineering Manager", "slack": "@carol" }
+  ],
+  "products": [
+    { "id": "prod1", "name": "Customer Portal", "description": "External-facing web portal", "teamId": "team3", "status": "active", "version": "3.2.1", "tags": ["customer-facing", "web"], "serviceIds": ["svc1", "svc2", "svc3"], "assignments": [{"personId":"own3","role":"Lead"},{"personId":"own1","role":"Architect"}] },
+    { "id": "prod2", "name": "Analytics Platform", "description": "BI and reporting platform", "teamId": "team1", "status": "active", "version": "2.0.0", "tags": ["internal", "analytics"], "serviceIds": ["svc3", "svc4"], "assignments": [{"personId":"own1","role":"Lead"},{"personId":"own3","role":"Stakeholder"}] }
+  ],
+  "services": [
+    { "id": "svc1", "name": "Customer API", "type": "api", "description": "RESTful API serving the customer portal", "teamId": "team1", "status": "active", "operationalStatus": "operational", "componentIds": ["cmp1", "cmp2"], "dependsOnServiceIds": ["svc3"], "resourceIds": ["res2"], "repositoryIds": ["repo6"], "assignments": [{"personId":"own1","role":"Lead"},{"personId":"own2","role":"On-Call"}], "attributes": { "endpoint": "https://api.holman.com/v2", "protocol": "REST", "authMethod": "OAuth2", "rateLimit": 1000, "sla": "99.9", "version": "v2" } },
+    { "id": "svc2", "name": "Customer Frontend", "type": "web_application", "description": "Vue.js SPA", "teamId": "team3", "status": "active", "operationalStatus": "operational", "componentIds": ["cmp3"], "dependsOnServiceIds": [], "resourceIds": ["res4"], "repositoryIds": ["repo6"], "assignments": [{"personId":"own3","role":"Lead"}], "attributes": { "url": "https://portal.holman.com", "framework": "Vue.js", "hosting": "Azure", "cdn": "Cloudflare", "authentication": "SSO" } },
+    { "id": "svc3", "name": "Core Database", "type": "database", "description": "Primary PostgreSQL cluster", "teamId": "team2", "status": "active", "operationalStatus": "degraded", "componentIds": [], "dependsOnServiceIds": [], "resourceIds": ["res1"], "repositoryIds": [], "assignments": [{"personId":"own2","role":"Lead"},{"personId":"own1","role":"Engineer"}], "attributes": { "dbType": "PostgreSQL", "version": "15.2", "hosting": "Azure", "backupFrequency": "Continuous", "encryption": true } },
+    { "id": "svc4", "name": "Analytics Pipeline", "type": "message_queue", "description": "Kafka pipeline for analytics events", "teamId": "team1", "status": "active", "operationalStatus": "operational", "componentIds": ["cmp4"], "dependsOnServiceIds": ["svc3"], "resourceIds": ["res3"], "repositoryIds": [], "assignments": [{"personId":"own1","role":"Lead"}], "attributes": { "broker": "Apache Kafka", "topics": "events,metrics,audit-logs", "retentionDays": 7, "dlq": true } }
+  ],
+  "components": [
+    { "id": "cmp1", "name": "Auth Middleware", "type": "library", "description": "JWT validation and OAuth2 middleware", "teamId": "team2", "status": "active", "operationalStatus": "operational", "dependsOnComponentIds": [], "dependsOnServiceIds": [], "repositoryIds": ["repo1"], "assignments": [{"personId":"own2","role":"Lead"}], "attributes": { "language": "Python", "version": "1.4.2", "repository": "https://github.com/holman/auth-middleware", "license": "MIT" } },
+    { "id": "cmp2", "name": "Rate Limiter", "type": "microservice", "description": "Distributed rate limiting service", "teamId": "team1", "status": "active", "operationalStatus": "operational", "dependsOnComponentIds": ["cmp1"], "dependsOnServiceIds": [], "repositoryIds": ["repo2"], "assignments": [{"personId":"own1","role":"Engineer"}], "attributes": { "runtime": "Python 3.11", "containerized": true, "repository": "https://github.com/holman/rate-limiter", "cicd": "GitHub Actions" } },
+    { "id": "cmp3", "name": "Design System", "type": "ui_component", "description": "Shared Vue component library", "teamId": "team3", "status": "active", "operationalStatus": "operational", "dependsOnComponentIds": [], "dependsOnServiceIds": [], "repositoryIds": ["repo3"], "assignments": [{"personId":"own3","role":"Lead"}], "attributes": { "framework": "Vue", "repository": "https://github.com/holman/design-system", "packageName": "@holman/ui" } },
+    { "id": "cmp4", "name": "Kafka Consumer SDK", "type": "sdk", "description": "Internal SDK wrapping Kafka consumers", "teamId": "team1", "status": "active", "operationalStatus": "operational", "dependsOnComponentIds": [], "dependsOnServiceIds": ["svc4"], "repositoryIds": ["repo4"], "assignments": [{"personId":"own1","role":"Lead"}], "attributes": { "vendor": "Internal", "version": "2.1.0", "language": "Python", "documentation": "https://docs.holman.com/kafka-sdk" } },
+    { "id": "cmp5", "name": "Monitoring Agent", "type": "agent", "description": "Infrastructure monitoring & alerting agent", "teamId": "team2", "status": "active", "operationalStatus": "operational", "dependsOnComponentIds": [], "dependsOnServiceIds": ["svc1", "svc3"], "repositoryIds": ["repo5"], "assignments": [{"personId":"own2","role":"Engineer"}], "attributes": { "runtime": "Go 1.21", "schedule": "Continuous", "containerized": true, "repository": "https://github.com/holman/monitoring-agent" } }
+  ],
+  "resources": [
+    { "id": "res1", "name": "prod-postgres-vm-01", "type": "virtual_machine", "description": "Primary PostgreSQL VM", "teamId": "team2", "operationalStatus": "degraded", "environment": "production", "assignments": [{"personId":"own2","role":"On-Call"}], "attributes": { "size": "Standard_D8s_v3", "os": "Ubuntu 22.04", "region": "eastus", "resourceGroup": "rg-prod-db", "privateIp": "10.0.1.10" } },
+    { "id": "res2", "name": "prod-api-aks", "type": "kubernetes", "description": "AKS cluster running the API", "teamId": "team1", "operationalStatus": "operational", "environment": "production", "assignments": [{"personId":"own1","role":"Engineer"}], "attributes": { "clusterName": "aks-prod-api", "region": "eastus", "nodeCount": 6, "nodeSize": "Standard_D4s_v3", "namespace": "api", "provider": "AKS" } },
+    { "id": "res3", "name": "prod-kafka-vm", "type": "ec2", "description": "Kafka broker EC2 instance", "teamId": "team1", "operationalStatus": "operational", "environment": "production", "assignments": [{"personId":"own1","role":"On-Call"}], "attributes": { "instanceType": "r6i.2xlarge", "region": "us-east-1", "privateIp": "10.1.0.50", "monitoring": true } },
+    { "id": "res4", "name": "prod-cdn-cloudflare", "type": "cdn", "description": "Cloudflare CDN for frontend", "teamId": "team3", "operationalStatus": "operational", "environment": "production", "assignments": [{"personId":"own3","role":"Stakeholder"}], "attributes": { "provider": "Cloudflare", "origins": "portal.holman.com", "waf": true } }
+  ],
+  "repositories": [
+    { "id": "repo1", "name": "holman/auth-middleware", "url": "https://github.com/holman/auth-middleware", "provider": "github", "description": "JWT validation and OAuth2 middleware library", "defaultBranch": "main", "language": "Python", "teamId": "team2", "assignments": [{"personId":"own2","role":"Lead"}] },
+    { "id": "repo2", "name": "holman/rate-limiter", "url": "https://github.com/holman/rate-limiter", "provider": "github", "description": "Distributed rate limiting microservice", "defaultBranch": "main", "language": "Python", "teamId": "team1", "assignments": [{"personId":"own1","role":"Lead"}] },
+    { "id": "repo3", "name": "holman/design-system", "url": "https://github.com/holman/design-system", "provider": "github", "description": "Shared Vue component library", "defaultBranch": "main", "language": "TypeScript", "teamId": "team3", "assignments": [{"personId":"own3","role":"Lead"}] },
+    { "id": "repo4", "name": "holman/kafka-consumer-sdk", "url": "https://github.com/holman/kafka-consumer-sdk", "provider": "github", "description": "Internal SDK wrapping Kafka consumers", "defaultBranch": "main", "language": "Python", "teamId": "team1", "assignments": [{"personId":"own1","role":"Lead"}] },
+    { "id": "repo5", "name": "holman/monitoring-agent", "url": "https://github.com/holman/monitoring-agent", "provider": "github", "description": "Infrastructure monitoring and alerting agent", "defaultBranch": "main", "language": "Go", "teamId": "team2", "assignments": [{"personId":"own2","role":"Lead"}] },
+    { "id": "repo6", "name": "HolmanEnterprises/customer-portal", "url": "https://dev.azure.com/HolmanEnterprises/customer-portal", "provider": "azure_devops", "description": "Customer-facing portal frontend & API", "defaultBranch": "main", "language": "TypeScript", "teamId": "team3", "assignments": [{"personId":"own3","role":"Lead"},{"personId":"own1","role":"Engineer"}] }
+  ],
+  "incidents": [
+    {
+      "id": "inc1",
+      "title": "Core Database Performance Degradation",
+      "description": "PostgreSQL primary VM showing elevated query latency and intermittent connection timeouts",
+      "severity": "major",
+      "status": "investigating",
+      "impactType": "degraded",
+      "affectedEntityIds": ["svc3", "res1"],
+      "createdAt": "2026-02-18T08:30:00Z",
+      "updatedAt": "2026-02-18T09:15:00Z",
+      "resolvedAt": null,
+      "timeline": [
+        { "timestamp": "2026-02-18T08:30:00Z", "status": "investigating", "message": "Monitoring alert triggered: database query latency exceeding 500ms threshold" },
+        { "timestamp": "2026-02-18T09:00:00Z", "status": "investigating", "message": "Identified elevated disk I/O on prod-postgres-vm-01" },
+        { "timestamp": "2026-02-18T09:15:00Z", "status": "investigating", "message": "DBA team engaged, analyzing slow query logs" }
+      ]
+    }
+  ],
+  "scorecards": [
+    {
+      "id": "sc1",
+      "name": "Enterprise Readiness",
+      "description": "Evaluates whether entities meet enterprise standards for ownership, documentation, and operational maturity",
+      "entityTypes": ["products", "services", "components"],
+      "criteria": [
+        { "id": "cr1", "name": "Has Team Ownership", "description": "Entity must be assigned to a team", "weight": 3, "check": { "type": "hasField", "field": "teamId" } },
+        { "id": "cr2", "name": "Has Description", "description": "Entity must have a meaningful description", "weight": 2, "check": { "type": "hasField", "field": "description" } },
+        { "id": "cr3", "name": "Has Lead Assignment", "description": "At least one person must be assigned as Lead", "weight": 3, "check": { "type": "hasAssignment", "value": "Lead" } },
+        { "id": "cr4", "name": "Multiple Assignments", "description": "At least 2 people should be assigned for bus-factor coverage", "weight": 2, "check": { "type": "minAssignments", "min": 2 } },
+        { "id": "cr5", "name": "No Active Incidents", "description": "Entity should have no unresolved incidents", "weight": 2, "check": { "type": "noActiveIncidents" } },
+        { "id": "cr6", "name": "Has Repository", "description": "Entity should be linked to at least one code repository", "weight": 1, "check": { "type": "hasItems", "field": "repositoryIds" } }
+      ]
+    },
+    {
+      "id": "sc2",
+      "name": "Security Compliance",
+      "description": "Checks security-related configuration and practices across services and resources",
+      "entityTypes": ["services", "resources"],
+      "criteria": [
+        { "id": "cr7", "name": "Has Team Owner", "description": "Must be owned by a team for accountability", "weight": 3, "check": { "type": "hasField", "field": "teamId" } },
+        { "id": "cr8", "name": "Operational Status OK", "description": "Entity should be in operational state", "weight": 2, "check": { "type": "fieldEquals", "field": "operationalStatus", "value": "operational" } },
+        { "id": "cr9", "name": "Has On-Call Assignment", "description": "Should have an on-call person assigned", "weight": 3, "check": { "type": "hasAssignment", "value": "On-Call" } },
+        { "id": "cr10", "name": "No Active Incidents", "description": "No unresolved incidents affecting this entity", "weight": 2, "check": { "type": "noActiveIncidents" } },
+        { "id": "cr11", "name": "Production Environment", "description": "Resource should be tagged as production", "weight": 1, "check": { "type": "fieldEquals", "field": "environment", "value": "production" } }
+      ]
+    },
+    {
+      "id": "sc3",
+      "name": "Repository Best Practices",
+      "description": "Ensures repositories follow organizational standards",
+      "entityTypes": ["repositories"],
+      "criteria": [
+        { "id": "cr12", "name": "Has Description", "description": "Repository must have a description", "weight": 2, "check": { "type": "hasField", "field": "description" } },
+        { "id": "cr13", "name": "Has Language", "description": "Primary language should be specified", "weight": 1, "check": { "type": "hasField", "field": "language" } },
+        { "id": "cr14", "name": "Has Team Owner", "description": "Repository must be assigned to a team", "weight": 3, "check": { "type": "hasField", "field": "teamId" } },
+        { "id": "cr15", "name": "Has URL", "description": "Repository should have a URL for access", "weight": 2, "check": { "type": "hasField", "field": "url" } },
+        { "id": "cr16", "name": "Has Maintainer", "description": "Should have a Lead assignment", "weight": 2, "check": { "type": "hasAssignment", "value": "Lead" } },
+        { "id": "cr17", "name": "Default Branch Set", "description": "Default branch should be configured", "weight": 1, "check": { "type": "hasField", "field": "defaultBranch" } }
+      ]
+    }
+  ]
+}

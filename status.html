@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>System Status — Holman Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+<style>
+:root{
+  --bg:#f5f7fa;--surface:#ffffff;--surface2:#f0f4f8;--surface3:#e4ecf4;
+  --border:#d0dcea;--border2:#b0c8de;
+  --text:#1a2a3a;--text-dim:#5a7a96;--text-bright:#003057;
+  --holman-blue:#003057;--holman-fresh:#0069A7;--holman-green:#2C9942;
+  --holman-neutral:#F3E8DA;
+  --degraded:#e08c00;--outage:#c0392b;--operational:#2C9942;
+  --font-display:'Poppins',sans-serif;--font-body:'Poppins',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --radius:8px;--radius-lg:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+#status-app{max-width:900px;margin:0 auto;padding:0 16px 40px}
+
+/* HEADER */
+.status-header{padding:24px 0 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.status-logo{font-family:var(--font-display);font-weight:700;font-size:20px;color:#003057;display:flex;align-items:center;gap:10px}
+.status-logo-badge{background:#2C9942;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:var(--font-mono)}
+.status-updated{margin-left:auto;font-size:11px;color:var(--text-dim);font-family:var(--font-mono)}
+
+/* BANNER */
+.status-banner{padding:28px 32px;text-align:center;border-radius:var(--radius-lg);margin:20px 0}
+.status-banner.all-ok{background:linear-gradient(135deg,rgba(44,153,66,.08),rgba(44,153,66,.02));border:1.5px solid rgba(44,153,66,.3)}
+.status-banner.has-issues{background:linear-gradient(135deg,rgba(224,140,0,.08),rgba(224,140,0,.02));border:1.5px solid rgba(224,140,0,.4)}
+.status-banner.has-outage{background:linear-gradient(135deg,rgba(192,57,59,.08),rgba(192,57,59,.02));border:1.5px solid rgba(192,57,59,.4)}
+.status-banner-icon{font-size:42px;margin-bottom:8px}
+.status-banner-text{font-family:var(--font-display);font-size:22px;font-weight:700}
+.status-banner.all-ok .status-banner-text{color:#2C9942}
+.status-banner.has-issues .status-banner-text{color:#7a4800}
+.status-banner.has-outage .status-banner-text{color:#7a0000}
+.status-banner-sub{font-size:12px;color:var(--text-dim);margin-top:4px;font-family:var(--font-mono)}
+
+/* INCIDENTS */
+.status-incident-banner{padding:14px 18px;background:#fdeaea;border:1px solid rgba(192,57,59,.3);border-radius:var(--radius);display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.status-incident-banner.warn{background:#fff8e6;border-color:rgba(224,140,0,.4)}
+.incident-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.incident-body{flex:1}
+.incident-title{font-weight:600;font-size:14px;color:#003057}
+.incident-desc{font-size:12px;color:var(--text-dim);margin-top:2px}
+.incident-meta{font-size:11px;color:var(--text-dim);font-family:var(--font-mono);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--font-mono);border:1px solid;white-space:nowrap}
+.badge-investigating{background:rgba(192,57,59,.1);color:#c0392b;border-color:rgba(192,57,59,.3)}
+.badge-identified{background:rgba(224,140,0,.1);color:#e08c00;border-color:rgba(224,140,0,.3)}
+.badge-monitoring{background:rgba(0,105,167,.1);color:#0069A7;border-color:rgba(0,105,167,.3)}
+.badge-resolved{background:rgba(44,153,66,.1);color:#2C9942;border-color:rgba(44,153,66,.3)}
+.badge-operational{background:rgba(44,153,66,.1);color:#2C9942;border-color:rgba(44,153,66,.3)}
+.badge-degraded{background:rgba(224,140,0,.12);color:#7a4800;border-color:rgba(224,140,0,.4)}
+.badge-outage{background:rgba(192,57,59,.12);color:#7a0000;border-color:rgba(192,57,59,.4)}
+
+/* PRODUCT CARDS */
+.status-product{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;transition:box-shadow .15s}
+.status-product:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.status-product-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none}
+.status-product-indicator{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.status-product-indicator.operational{background:#2C9942}
+.status-product-indicator.degraded{background:#e08c00;animation:pulse-indicator 1.5s ease-in-out infinite}
+.status-product-indicator.outage{background:#c0392b;animation:pulse-indicator 1s ease-in-out infinite}
+@keyframes pulse-indicator{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.status-product-name{font-family:var(--font-display);font-weight:600;font-size:15px;color:#003057;flex:1}
+.status-product-desc{font-size:12px;color:var(--text-dim);flex:1;text-align:right;margin-right:8px}
+.status-product-badge{font-size:11px;font-weight:600;font-family:var(--font-mono);padding:3px 10px;border-radius:4px}
+.status-product-badge.operational{background:rgba(44,153,66,.1);color:#2C9942;border:1px solid rgba(44,153,66,.3)}
+.status-product-badge.degraded{background:rgba(224,140,0,.12);color:#7a4800;border:1px solid rgba(224,140,0,.4)}
+.status-product-badge.outage{background:rgba(192,57,59,.12);color:#7a0000;border:1px solid rgba(192,57,59,.4)}
+.status-product-chevron{color:var(--text-dim);transition:transform .2s;font-size:14px}
+.status-product-chevron.open{transform:rotate(180deg)}
+.status-services-list{border-top:1px solid var(--border);padding:8px 18px 14px}
+.status-service-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surface2)}
+.status-service-row:last-child{border-bottom:none}
+.status-service-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-service-dot.operational{background:#2C9942}
+.status-service-dot.degraded{background:#e08c00}
+.status-service-dot.outage{background:#c0392b}
+.status-service-name{font-size:13px;color:var(--text);flex:1}
+.status-service-type{font-size:11px;color:var(--text-dim);font-family:var(--font-mono)}
+.status-service-status{font-size:11px;font-weight:600;font-family:var(--font-mono);padding:2px 8px;border-radius:4px}
+
+/* SERVICE STATUS BADGE COLORS */
+.status-service-status.operational{background:rgba(44,153,66,.1);color:#2C9942;border:1px solid rgba(44,153,66,.25)}
+.status-service-status.degraded{background:rgba(224,140,0,.12);color:#7a4800;border:1px solid rgba(224,140,0,.35)}
+.status-service-status.outage{background:rgba(192,57,59,.12);color:#7a0000;border:1px solid rgba(192,57,59,.35)}
+
+/* SECTION LABELS */
+.section-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);font-family:var(--font-mono);margin:20px 0 12px}
+
+/* FOOTER */
+.status-footer{text-align:center;padding:24px 0;border-top:1px solid var(--border);margin-top:32px;font-size:11px;color:var(--text-dim);font-family:var(--font-mono)}
+.status-footer a{color:var(--holman-fresh);text-decoration:none}
+.status-footer a:hover{text-decoration:underline}
+
+/* EMPTY */
+.empty-msg{text-align:center;padding:48px;color:var(--text-dim);font-size:13px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#b0c8de;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#0069A7}
+</style>
+</head>
+<body>
+<div id="status-app">
+  <!-- Header -->
+  <div class="status-header">
+    <div class="status-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0069A7" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      System Status
+      <span class="status-logo-badge">HOLMAN</span>
+    </div>
+    <div class="status-updated">Last updated: {{ lastUpdated }}</div>
+  </div>
+
+  <!-- Overall Banner -->
+  <div :class="'status-banner '+(overall==='outage'?'has-outage':overall==='degraded'?'has-issues':'all-ok')">
+    <div class="status-banner-icon">{{ overall==='outage'?'🔴':overall==='degraded'?'🟡':'🟢' }}</div>
+    <div class="status-banner-text">{{ overall==='outage'?'System Outage Detected':overall==='degraded'?'Partial System Degradation':'All Systems Operational' }}</div>
+    <div class="status-banner-sub">{{ statusSummary }}</div>
+  </div>
+
+  <!-- Active Incidents -->
+  <div v-if="activeIncidents.length">
+    <div class="section-label">Active Incidents</div>
+    <div v-for="inc in activeIncidents" :key="inc.id" :class="'status-incident-banner '+(inc.severity==='critical'?'':'warn')">
+      <span class="incident-icon">{{ inc.severity==='critical'?'🔴':'🟡' }}</span>
+      <div class="incident-body">
+        <div class="incident-title">{{ inc.title }}</div>
+        <div v-if="inc.description" class="incident-desc">{{ inc.description }}</div>
+        <div class="incident-meta">
+          <span :class="'badge badge-'+inc.status">{{ inc.status }}</span>
+          <span>·</span>
+          <span>{{ formatDate(inc.createdAt) }}</span>
+          <span>·</span>
+          <span>{{ (inc.affectedEntityIds||[]).length }} affected entities</span>
+        </div>
+        <!-- Timeline -->
+        <div v-if="(inc.timeline||[]).length" style="margin-top:10px;border-left:2px solid var(--border);padding-left:12px">
+          <div v-for="(entry,i) in inc.timeline" :key="i" style="padding-bottom:8px">
+            <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">{{ formatDate(entry.timestamp) }} — <span :class="'badge badge-'+entry.status" style="font-size:10px">{{ entry.status }}</span></div>
+            <div style="font-size:12px;color:var(--text);margin-top:2px">{{ entry.message }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products -->
+  <div class="section-label">Services by Product</div>
+
+  <div v-if="!products.length" class="empty-msg">No products defined yet.</div>
+
+  <div v-for="p in products" :key="p.id" class="status-product">
+    <div class="status-product-header" @click="toggle(p.id)">
+      <div :class="'status-product-indicator '+p.overallStatus"></div>
+      <div class="status-product-name">{{ p.name }}</div>
+      <span v-if="p.description" class="status-product-desc">{{ p.description }}</span>
+      <span :class="'status-product-badge '+p.overallStatus">{{ p.overallStatus==='operational'?'Operational':p.overallStatus==='degraded'?'Degraded':'Outage' }}</span>
+      <span :class="'status-product-chevron'+(expanded.includes(p.id)?' open':'')">▾</span>
+    </div>
+    <div v-if="expanded.includes(p.id)" class="status-services-list">
+      <div v-if="!p.services.length" style="color:var(--text-dim);font-size:12px;padding:8px 0">No services assigned to this product</div>
+      <div v-for="s in p.services" :key="s.id" class="status-service-row">
+        <div :class="'status-service-dot '+(s.operationalStatus||'operational')"></div>
+        <span class="status-service-name">{{ s.name }}</span>
+        <span class="status-service-type">{{ serviceTypeLabel(s.type) }}</span>
+        <span :class="'status-service-status '+(s.operationalStatus||'operational')">{{ (s.operationalStatus||'operational').toUpperCase() }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="status-footer">
+    Powered by <a href="app-inventory.html">AppInventory</a> · Holman Enterprise
+  </div>
+</div>
+
+<script>
+const{createApp}=Vue;
+
+const serviceTypeLabels={api:'API Service',web_application:'Web Application',database:'Database',message_queue:'Message Queue',cache:'Cache',infrastructure:'Infrastructure'};
+
+createApp({
+  data(){return{
+    inventory:{owners:[],products:[],services:[],components:[],resources:[],repositories:[],incidents:[],teams:[]},
+    expanded:[],
+    lastUpdated:new Date().toLocaleString()
+  }},
+
+  computed:{
+    activeIncidents(){return this.inventory.incidents.filter(i=>i.status!=='resolved')},
+    products(){
+      return this.inventory.products.map(p=>{
+        const services=(p.serviceIds||[]).map(id=>this.inventory.services.find(s=>s.id===id)).filter(Boolean);
+        let overallStatus='operational';
+        if(services.some(s=>s.operationalStatus==='outage'))overallStatus='outage';
+        else if(services.some(s=>s.operationalStatus==='degraded'))overallStatus='degraded';
+        return{...p,services,overallStatus};
+      });
+    },
+    overall(){
+      if(this.products.some(p=>p.overallStatus==='outage'))return'outage';
+      if(this.products.some(p=>p.overallStatus==='degraded'))return'degraded';
+      return'operational';
+    },
+    statusSummary(){
+      const total=this.inventory.services.length;
+      const ok=this.inventory.services.filter(s=>!s.operationalStatus||s.operationalStatus==='operational').length;
+      const degraded=this.inventory.services.filter(s=>s.operationalStatus==='degraded').length;
+      const outage=this.inventory.services.filter(s=>s.operationalStatus==='outage').length;
+      if(this.overall==='operational')return total+' services monitored — all operational';
+      const parts=[];
+      if(ok)parts.push(ok+' operational');
+      if(degraded)parts.push(degraded+' degraded');
+      if(outage)parts.push(outage+' outage');
+      return total+' services monitored — '+parts.join(', ');
+    }
+  },
+
+  methods:{
+    toggle(id){
+      const i=this.expanded.indexOf(id);
+      if(i===-1)this.expanded.push(id);
+      else this.expanded.splice(i,1);
+    },
+    serviceTypeLabel(type){return serviceTypeLabels[type]||type},
+    formatDate(d){
+      if(!d)return'—';
+      const dt=new Date(d);
+      return dt.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    },
+    loadData(){
+      try{
+        const saved=localStorage.getItem('appInventory');
+        if(saved){
+          const d=JSON.parse(saved);
+          this.inventory={
+            owners:d.owners||[],products:d.products||[],services:d.services||[],
+            components:d.components||[],resources:d.resources||[],
+            repositories:d.repositories||[],incidents:d.incidents||[],teams:d.teams||[]
+          };
+        }
+      }catch(e){}
+      this.lastUpdated=new Date().toLocaleString();
+    }
+  },
+
+  mounted(){
+    this.loadData();
+    // Auto-refresh every 30 seconds
+    this._interval=setInterval(()=>this.loadData(),30000);
+  },
+  beforeUnmount(){clearInterval(this._interval)}
+}).mount('#status-app');
+</script>
+</body>
+</html>
