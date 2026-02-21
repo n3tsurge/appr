@@ -146,3 +146,70 @@ def auth_headers(test_user: User) -> dict[str, str]:
         expires_delta=timedelta(minutes=15),
     )
     return {"Authorization": f"Bearer {access_token}"}
+
+
+# ---------------------------------------------------------------------------
+# Additional role fixtures
+# ---------------------------------------------------------------------------
+@pytest_asyncio.fixture
+async def editor_user(db_session: AsyncSession, test_tenant: Tenant) -> User:
+    """Create and persist an editor user for the test tenant."""
+    user = User(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        email="editor@test.example.com",
+        display_name="Test Editor",
+        password_hash=get_password_hash("TestPassword123!"),
+        role=UserRole.editor,
+        auth_provider=AuthProvider.local,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def viewer_user(db_session: AsyncSession, test_tenant: Tenant) -> User:
+    """Create and persist a viewer user for the test tenant."""
+    user = User(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        email="viewer@test.example.com",
+        display_name="Test Viewer",
+        password_hash=get_password_hash("TestPassword123!"),
+        role=UserRole.viewer,
+        auth_provider=AuthProvider.local,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest.fixture
+def editor_headers(editor_user: User) -> dict[str, str]:
+    """Return Authorization headers containing a valid JWT for the editor user."""
+    access_token = create_access_token(
+        data={
+            "sub": str(editor_user.id),
+            "tenant_id": str(editor_user.tenant_id),
+            "role": editor_user.role.value,
+        },
+        expires_delta=timedelta(minutes=15),
+    )
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def viewer_headers(viewer_user: User) -> dict[str, str]:
+    """Return Authorization headers containing a valid JWT for the viewer user."""
+    access_token = create_access_token(
+        data={
+            "sub": str(viewer_user.id),
+            "tenant_id": str(viewer_user.tenant_id),
+            "role": viewer_user.role.value,
+        },
+        expires_delta=timedelta(minutes=15),
+    )
+    return {"Authorization": f"Bearer {access_token}"}
