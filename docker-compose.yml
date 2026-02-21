@@ -1,0 +1,87 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: appinventory
+      POSTGRES_USER: appinventory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appinventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks: [appnet]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks: [appnet]
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    environment:
+      DATABASE_URL: postgresql+asyncpg://appinventory:${POSTGRES_PASSWORD:-changeme}@postgres:5432/appinventory
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      ENVIRONMENT: production
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [appnet]
+    ports:
+      - "8000:8000"
+
+  celery_worker:
+    build:
+      context: ./backend
+      target: production
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      DATABASE_URL: postgresql+asyncpg://appinventory:${POSTGRES_PASSWORD:-changeme}@postgres:5432/appinventory
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [appnet]
+
+  celery_beat:
+    build:
+      context: ./backend
+      target: production
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://appinventory:${POSTGRES_PASSWORD:-changeme}@postgres:5432/appinventory
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [appnet]
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    networks: [appnet]
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  appnet:
+    driver: bridge
