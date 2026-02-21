@@ -1,19 +1,20 @@
-"""JWT and password security utilities."""
+"""JWT token creation/verification and password hashing utilities."""
 
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import structlog
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
-from app.core.logging import get_logger
 
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Password hashing
@@ -22,77 +23,88 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a plain-text password using bcrypt."""
+    """Return a bcrypt hash of *password*."""
     return _pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Verify a plain-text password against a stored bcrypt hash."""
+    """Return True if *plain* matches the *hashed* password."""
     return _pwd_context.verify(plain, hashed)
 
 
 # ---------------------------------------------------------------------------
-# Token helpers
+# JWT helpers
 # ---------------------------------------------------------------------------
 _ALGORITHM = settings.JWT_ALGORITHM
-_ACCESS_TOKEN_EXPIRE = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-_REFRESH_TOKEN_EXPIRE = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+_PRIVATE_KEY = settings.JWT_PRIVATE_KEY
+_PUBLIC_KEY = settings.JWT_PUBLIC_KEY
 
 
-def _now_utc() -> datetime:
-    return datetime.now(UTC)
+def _utcnow() -> datetime:
+    return datetime.now(tz=timezone.utc)
 
 
-def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+) -> str:
     """Create a signed RS256 JWT access token.
 
     Args:
-        data: Claims to embed in the token payload.
-        expires_delta: Optional custom expiry; defaults to 15 minutes.
+        data: Claims to embed (must include ``sub`` as a string user ID).
+        expires_delta: Custom TTL; defaults to
+            ``settings.ACCESS_TOKEN_EXPIRE_MINUTES`` minutes.
 
     Returns:
         Encoded JWT string.
     """
-    expire = _now_utc() + (expires_delta or _ACCESS_TOKEN_EXPIRE)
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    now = _utcnow()
     payload: dict[str, Any] = {
         **data,
-        "exp": expire,
-        "iat": _now_utc(),
+        "iat": now,
+        "exp": now + expires_delta,
+        "jti": str(uuid.uuid4()),
         "type": "access",
     }
-    return jwt.encode(payload, settings.JWT_PRIVATE_KEY, algorithm=_ALGORITHM)
+    return jwt.encode(payload, _PRIVATE_KEY, algorithm=_ALGORITHM)
 
 
 def create_refresh_token(data: dict[str, Any]) -> str:
     """Create a signed RS256 JWT refresh token with a 7-day TTL.
 
     Args:
-        data: Claims to embed; typically contains ``sub`` (user id) and ``tid`` (tenant id).
+        data: Claims to embed (must include ``sub`` as a string user ID).
 
     Returns:
         Encoded JWT string.
     """
-    expire = _now_utc() + _REFRESH_TOKEN_EXPIRE
+    now = _utcnow()
+    expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload: dict[str, Any] = {
         **data,
-        "exp": expire,
-        "iat": _now_utc(),
+        "iat": now,
+        "exp": now + expires_delta,
+        "jti": str(uuid.uuid4()),
         "type": "refresh",
     }
-    return jwt.encode(payload, settings.JWT_PRIVATE_KEY, algorithm=_ALGORITHM)
+    return jwt.encode(payload, _PRIVATE_KEY, algorithm=_ALGORITHM)
 
 
-def verify_token(token: str) -> dict[str, Any]:
+def verify_token(token: str, expected_type: str = "access") -> dict[str, Any]:
     """Decode and validate a JWT token.
 
     Args:
         token: Raw JWT string.
+        expected_type: ``"access"`` or ``"refresh"``.
 
     Returns:
         Decoded payload dictionary.
 
     Raises:
-        HTTPException: 401 when the token is invalid or expired.
+        HTTPException 401 on any validation failure.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -100,17 +112,36 @@ def verify_token(token: str) -> dict[str, Any]:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload: dict[str, Any] = jwt.decode(
-            token,
-            settings.JWT_PUBLIC_KEY,
-            algorithms=[_ALGORITHM],
-        )
-        return payload
+        payload: dict[str, Any] = jwt.decode(token, _PUBLIC_KEY, algorithms=[_ALGORITHM])
     except JWTError as exc:
-        logger.warning("JWT validation failed", error=str(exc))
+        logger.warning("jwt decode failed", error=str(exc))
         raise credentials_exception from exc
+
+    if payload.get("type") != expected_type:
+        logger.warning(
+            "jwt type mismatch",
+            expected=expected_type,
+            got=payload.get("type"),
+        )
+        raise credentials_exception
+
+    if payload.get("sub") is None:
+        logger.warning("jwt missing sub claim")
+        raise credentials_exception
+
+    return payload
 
 
 def hash_token(token: str) -> str:
-    """Return a SHA-256 hex digest of a token for safe storage."""
+    """Return a SHA-256 hex digest of a token (for database storage)."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+__all__ = [
+    "create_access_token",
+    "create_refresh_token",
+    "verify_token",
+    "get_password_hash",
+    "verify_password",
+    "hash_token",
+]

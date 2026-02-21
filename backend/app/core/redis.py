@@ -1,64 +1,59 @@
-"""Async Redis client factory."""
+"""Redis async client factory and FastAPI dependency."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Annotated
 
 import redis.asyncio as aioredis
+from fastapi import Depends
 from redis.asyncio import Redis
 from redis.asyncio.connection import ConnectionPool
 
 from app.core.config import settings
 
 # ---------------------------------------------------------------------------
-# Connection pool (created once at module load; lazily connected)
+# Connection pool – created once at import time, reused across requests
 # ---------------------------------------------------------------------------
-_pool: ConnectionPool | None = None
+_pool: ConnectionPool = aioredis.ConnectionPool.from_url(
+    settings.REDIS_URL,
+    max_connections=50,
+    decode_responses=True,
+    # hiredis parser is picked up automatically when redis[hiredis] is installed
+)
 
 
-def _get_pool() -> ConnectionPool:
-    global _pool  # noqa: PLW0603
-    if _pool is None:
-        _pool = aioredis.ConnectionPool.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=50,
-        )
+def get_redis_pool() -> ConnectionPool:
+    """Return the shared connection pool (useful for testing overrides)."""
     return _pool
 
 
-def get_redis_client() -> Redis:
-    """Return a Redis client backed by the shared connection pool."""
-    return aioredis.Redis(connection_pool=_get_pool())
-
-
-# ---------------------------------------------------------------------------
-# FastAPI dependency
-# ---------------------------------------------------------------------------
 async def get_redis() -> AsyncGenerator[Redis, None]:
-    """Yield an async Redis client.  Does NOT close the pool between requests."""
-    client: Redis = get_redis_client()
+    """Yield a Redis client bound to the shared connection pool.
+
+    Usage::
+
+        @router.get("/")
+        async def handler(redis: RedisClient) -> ...:
+            await redis.get("key")
+    """
+    client: Redis = aioredis.Redis(connection_pool=_pool)
     try:
         yield client
     finally:
-        # Individual client resources are managed by the pool; no explicit close.
-        pass
-
-
-async def close_redis_pool() -> None:
-    """Drain and close the connection pool.  Call during application shutdown."""
-    global _pool  # noqa: PLW0603
-    if _pool is not None:
-        await _pool.aclose()
-        _pool = None
+        await client.aclose()
 
 
 async def ping_redis() -> bool:
-    """Health-check helper – returns True when Redis is reachable."""
-    client = get_redis_client()
+    """Return True if Redis is reachable (used in health checks)."""
+    client: Redis = aioredis.Redis(connection_pool=_pool)
     try:
         return await client.ping()
     except Exception:
         return False
+    finally:
+        await client.aclose()
+
+
+# Convenience type alias for use in route signatures
+RedisClient = Annotated[Redis, Depends(get_redis)]

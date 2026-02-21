@@ -1,4 +1,4 @@
-"""Structured JSON logging configuration via structlog."""
+"""Structured logging configuration using structlog."""
 
 from __future__ import annotations
 
@@ -7,39 +7,48 @@ import sys
 from typing import Any
 
 import structlog
-from structlog.contextvars import merge_contextvars
-from structlog.typing import EventDict, WrappedLogger
+from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
+from structlog.typing import EventDict, Processor
 
 
-# ---------------------------------------------------------------------------
-# Custom processors
-# ---------------------------------------------------------------------------
-def _add_log_level(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
-    """Add log level to event dict (structlog built-in does this too, kept for clarity)."""
-    event_dict.setdefault("level", method_name.upper())
+def _add_log_level_upper(
+    logger: Any,  # noqa: ANN401
+    method: str,
+    event_dict: EventDict,
+) -> EventDict:
+    """Ensure log level is uppercase for consistency."""
+    event_dict["level"] = event_dict.get("level", method).upper()
     return event_dict
 
 
-def _drop_color_message_key(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
-    """Remove the 'color_message' key injected by uvicorn when it is present."""
+def _drop_color_message_key(
+    logger: Any,  # noqa: ANN401
+    method: str,
+    event_dict: EventDict,
+) -> EventDict:
+    """Remove uvicorn's color_message key which duplicates 'message'."""
     event_dict.pop("color_message", None)
     return event_dict
 
 
-# ---------------------------------------------------------------------------
-# Public configuration entrypoint
-# ---------------------------------------------------------------------------
 def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None:
-    """Configure structlog and the stdlib logging integration.
+    """Configure structlog for the application.
+
+    In production (json_output=True):
+        - Renders as JSON (suitable for log aggregation pipelines)
+    In development (json_output=False):
+        - Renders with coloured ConsoleRenderer for human readability
 
     Args:
-        log_level: One of DEBUG, INFO, WARNING, ERROR, CRITICAL.
-        json_output: When True use JSON renderer; otherwise use ConsoleRenderer.
+        log_level: Standard Python log level string (DEBUG, INFO, etc.).
+        json_output: When True, emit JSON lines; otherwise use ConsoleRenderer.
     """
-    shared_processors: list[Any] = [
+    log_level_int = getattr(logging, log_level.upper(), logging.INFO)
+
+    shared_processors: list[Processor] = [
         merge_contextvars,
         structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
+        _add_log_level_upper,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
@@ -47,7 +56,7 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
     ]
 
     if json_output:
-        renderer: Any = structlog.processors.JSONRenderer()
+        renderer: Processor = structlog.processors.JSONRenderer()
     else:
         renderer = structlog.dev.ConsoleRenderer(colors=True)
 
@@ -56,10 +65,9 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
             *shared_processors,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
+        wrapper_class=structlog.make_filtering_bound_logger(log_level_int),
+        context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.make_filtering_bound_logger(
-            logging.getLevelName(log_level.upper())
-        ),
         cache_logger_on_first_use=True,
     )
 
@@ -77,13 +85,44 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    root_logger.setLevel(log_level.upper())
+    root_logger.setLevel(log_level_int)
 
-    # Silence noisy third-party loggers
-    for noisy in ("uvicorn.access", "sqlalchemy.engine", "asyncio"):
+    # Quiet noisy third-party loggers
+    for noisy in ("uvicorn.access", "sqlalchemy.engine", "httpx", "httpcore"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
+    structlog.get_logger(__name__).info(
+        "logging configured",
+        level=log_level,
+        json_output=json_output,
+    )
 
-def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    """Return a bound structlog logger for the given name."""
-    return structlog.get_logger(name)
+
+# ---------------------------------------------------------------------------
+# Context helpers – re-exported so callers don't need to import structlog
+# ---------------------------------------------------------------------------
+def bind_request_context(
+    request_id: str,
+    user_id: str | None = None,
+    tenant_id: str | None = None,
+) -> None:
+    """Bind per-request context variables for inclusion in every log line."""
+    clear_contextvars()
+    ctx: dict[str, str] = {"request_id": request_id}
+    if user_id is not None:
+        ctx["user_id"] = user_id
+    if tenant_id is not None:
+        ctx["tenant_id"] = tenant_id
+    bind_contextvars(**ctx)
+
+
+def clear_request_context() -> None:
+    """Clear per-request context variables (call in response cleanup)."""
+    clear_contextvars()
+
+
+__all__ = [
+    "configure_logging",
+    "bind_request_context",
+    "clear_request_context",
+]
