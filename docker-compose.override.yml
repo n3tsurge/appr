@@ -1,0 +1,37 @@
+version: '3.9'
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      target: development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    environment:
+      ENVIRONMENT: development
+      LOG_FORMAT: console
+    ports:
+      - "8000:8000"
+
+  celery_worker:
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host
